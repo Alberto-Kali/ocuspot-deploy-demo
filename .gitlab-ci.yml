@@ -19,6 +19,11 @@ build-image:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
     - docker build -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA" .
     - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+    - docker save "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA" -o ocuspot-image.tar
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - ocuspot-image.tar
 
 # sync-github: push accepted default-branch changes from GitLab (primary) to GitHub.
 # GitHub workflow skips back-sync for merges whose message references the sync/github- prefix.
@@ -60,7 +65,7 @@ deploy-carrier:
     - rm -rf "$OCUSPOT_DEPLOY_DIR"
     - OCUSPOT_LOCAL_CONTROL_DIR="$OCUSPOT_CONTROL_DIR" "${OCUSPOT_CLI:-./ocuspot}" deploy bundle --project "ocuspot-deploy-demo" --image "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA" --subdomain "ocuspot-demo" --carrier "backend-kvm" --gateway "pconf-bus" --out "$OCUSPOT_DEPLOY_DIR" --apply
     - cd "$OCUSPOT_DEPLOY_DIR"
-    - RATHOLE_BIN="${RATHOLE_BIN:-}" ./deploy.sh
+    - IMAGE_TAR="../ocuspot-image.tar" RATHOLE_BIN="${RATHOLE_BIN:-}" ./deploy.sh
   artifacts:
     when: always
     expire_in: 7 days
