@@ -25,9 +25,11 @@ build-image:
 # Uses $OCUSPOT_GITHUB_TOKEN (masked CI variable) only.
 sync-github:
   stage: sync
-  image: alpine/git:latest
+  image: alpine:latest
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  before_script:
+    - apk add --no-cache git
   script:
     - |
       set -e
