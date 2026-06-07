@@ -51,7 +51,7 @@ deploy-carrier:
     OCUSPOT_DEPLOY_DIR: ".ocuspot-deploy"
     OCUSPOT_CONTROL_DIR: ".ocuspot-control"
   before_script:
-    - apk add --no-cache ca-certificates git openssh-client sshpass
+    - apk add --no-cache ca-certificates curl git openssh-client sshpass
     - test -n "$OCUSPOT_CONTROL_REPO_URL"
     - test -n "$OCUSPOT_GITLAB_TOKEN"
     - test -n "$OCUSPOT_SSH_PRIVATE_KEY" || { test -n "$OCUSPOT_CARRIER_SSH_PASSWORD" && test -n "$OCUSPOT_GATEWAY_SSH_PASSWORD"; }
