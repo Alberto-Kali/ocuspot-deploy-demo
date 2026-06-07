@@ -1,0 +1,20 @@
+version: 1
+project:
+  name: "Ocuspot Deploy Demo"
+  slug: "ocuspot-deploy-demo"
+repositories:
+  gitlab:
+    visibility: private
+    protected_default_branch: true
+    require_pipeline_success: true
+  github:
+    enabled: true
+    visibility: public
+sync:
+  bidirectional: true
+  source_of_truth: gitlab
+deployment:
+  enabled: true
+  container_host: "backend-kvm"
+  gateway: "pconf-bus"
+  subdomain: "ocuspot-demo"

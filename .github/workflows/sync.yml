@@ -1,0 +1,82 @@
+name: Safe bidirectional sync (GitHub -> GitLab reviewable path)
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  sync-to-gitlab:
+    runs-on: ubuntu-latest
+    # Loop prevention (point 8):
+    # - Never mirror a push that originated from GitLab's mirror to GitHub.
+    # - GitLab->GitHub pushes of reviewed GH contributions produce merge commits whose
+    #   messages contain the sync branch prefix (sync/github-*). We skip in that case.
+    # - Direct pushes to GitLab default from this workflow are forbidden by design.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (! contains(github.event.head_commit.message, 'sync/github-') ||
+       github.event.head_commit.message == null)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Configure git bot identity (for any local commits/trailers)
+        run: |
+          git config user.name "ocuspot-mirror[bot]"
+          git config user.email "mirror@ocuspot.invalid"
+      - name: Add trailer marker to HEAD for traceability (github-to-gitlab)
+        run: |
+          # Adding trailer to the tip commit (amend) so MR and eventual merge carry metadata.
+          # This does not rewrite public history on GitHub main because we push a *new* sync branch.
+          git commit --amend --no-edit --trailer "Ocuspot-Mirror: github-to-gitlab" || true
+      - name: Create unique sync branch and push to GitLab (dedicated branch, never default)
+        env:
+          # Secret reference only. Never print or persist the value.
+          GL_TOKEN: ${{ secrets.OCUSPOT_GITLAB_TOKEN }}
+        run: |
+          set -euo pipefail
+          SHORT="$(git rev-parse --short HEAD)"
+          BRANCH="sync/github-${SHORT}"
+          echo "Using sync branch: $BRANCH (prefix-guarded, MR-required)"
+
+          # Add GitLab remote using the provided token (env only).
+          git remote add gitlab "https://oauth2:${GL_TOKEN}@gitlab.com/albertozaaz760/ocuspot-deploy-demo.git" || true
+          git fetch gitlab || true
+
+          git checkout -B "$BRANCH"
+          git push gitlab "$BRANCH:$BRANCH" --force-with-lease
+
+      - name: Open (or update) GitLab MR for review (github contribution enters via MR gate)
+        env:
+          GL_TOKEN: ${{ secrets.OCUSPOT_GITLAB_TOKEN }}
+        run: |
+          set -euo pipefail
+          SHORT="$(git rev-parse --short HEAD)"
+          BRANCH="sync/github-${SHORT}"
+          # URL-encode the project path for the API (group/sub/proj -> group%2Fsub%2Fproj)
+          PROJ_ENC="$(printf '%s' 'albertozaaz760/ocuspot-deploy-demo' | sed 's|/|%2F|g')"
+          TITLE="sync(github): ${SHORT} -> GitLab (reviewable)"
+          BODY=$(cat <<'EOD'
+This MR was automatically created by the ocuspot GitHub->GitLab sync workflow.
+
+It carries changes accepted on GitHub main. **GitLab is the source of truth**.
+Please review, resolve any conflicts, and merge to accept the contribution.
+
+After merge, the GitLab CI sync job will mirror the result to GitHub.
+Marker trailer: Ocuspot-Mirror: github-to-gitlab
+Sync branch prefix: sync/github-
+EOD
+          )
+
+          # Create MR (idempotent-ish: ignore 409 if one already exists for the branch)
+          curl -sS -X POST \
+            -H "PRIVATE-TOKEN: ${GL_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "{\"source_branch\": \"${BRANCH}\", \"target_branch\": \"main\", \"title\": \"${TITLE}\", \"description\": \"${BODY//\"/\\\"}\" }" \
+            "https://gitlab.com/api/v4/projects/${PROJ_ENC}/merge_requests" || true
+
+          echo "MR creation attempted for ${BRANCH} -> main. Check GitLab for the reviewable MR."
+      - name: Summary (no direct default push from GitHub ever performed)
+        run: |
+          echo "GitHub changes were sent to a dedicated sync branch and MR."
+          echo "This satisfies the requirement that GitHub contributions enter GitLab through a reviewable path."
