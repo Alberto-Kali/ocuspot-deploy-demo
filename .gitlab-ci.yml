@@ -35,7 +35,7 @@ sync-github:
       set -e
       git remote add github "https://oauth2:${OCUSPOT_GITHUB_TOKEN}@github.com/Alberto-Kali/ocuspot-deploy-demo.git" || true
       git fetch github main || true
-      git push github HEAD:main
+      git push github HEAD:refs/heads/main
 
 deploy-carrier:
   stage: deploy
