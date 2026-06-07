@@ -1,0 +1,8 @@
+# Ocuspot-managed carrier Rathole config for binding backend-kvm@pconf-bus
+[client]
+remote_addr = "138.16.226.122:2333"
+
+[client.services.ocuspot_deploy_demo_backend_kvm_pconf_bus_8080]
+type = "tcp"
+local_addr = "127.0.0.1:8080"
+token = "${OCUSPOT_RATHOLE_OCUSPOT_DEPLOY_DEMO_BACKEND_KVM_PCONF_BUS_8080}"

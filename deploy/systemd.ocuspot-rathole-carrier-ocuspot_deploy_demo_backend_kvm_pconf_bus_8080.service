@@ -1,0 +1,14 @@
+[Unit]
+Description=Ocuspot Rathole carrier for ocuspot_deploy_demo_backend_kvm_pconf_bus_8080
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/ocuspot/rathole.env
+ExecStart=/usr/local/bin/rathole /etc/ocuspot/rathole/carrier.ocuspot_deploy_demo_backend_kvm_pconf_bus_8080.toml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

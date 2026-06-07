@@ -45,29 +45,24 @@ sync-github:
 deploy-carrier:
   stage: deploy
   image: alpine:latest
+  needs:
+    - job: build-image
+      artifacts: true
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-  variables:
-    OCUSPOT_DEPLOY_DIR: ".ocuspot-deploy"
-    OCUSPOT_CONTROL_DIR: ".ocuspot-control"
   before_script:
-    - apk add --no-cache ca-certificates curl git openssh-client sshpass
-    - test -n "$OCUSPOT_CONTROL_REPO_URL"
-    - test -n "$OCUSPOT_GITLAB_TOKEN"
+    - apk add --no-cache ca-certificates curl openssh-client sshpass
     - test -n "$OCUSPOT_SSH_PRIVATE_KEY" || { test -n "$OCUSPOT_CARRIER_SSH_PASSWORD" && test -n "$OCUSPOT_GATEWAY_SSH_PASSWORD"; }
-    - test -x "${OCUSPOT_CLI:-./ocuspot}"
+    - test -f deploy/deploy.sh
     - mkdir -p ~/.ssh
     - if [ -n "$OCUSPOT_SSH_PRIVATE_KEY" ]; then printf '%s\n' "$OCUSPOT_SSH_PRIVATE_KEY" > ~/.ssh/ocuspot_deploy_key && chmod 600 ~/.ssh/ocuspot_deploy_key && printf 'Host *\n  IdentityFile ~/.ssh/ocuspot_deploy_key\n  IdentitiesOnly yes\n  StrictHostKeyChecking accept-new\n' > ~/.ssh/config; else printf 'Host *\n  StrictHostKeyChecking accept-new\n' > ~/.ssh/config; fi
-    - rm -rf "$OCUSPOT_CONTROL_DIR"
-    - AUTH_CONTROL_URL="$(printf '%s' "$OCUSPOT_CONTROL_REPO_URL" | sed "s#^https://#https://oauth2:${OCUSPOT_GITLAB_TOKEN}@#")"
-    - git clone --depth 1 "$AUTH_CONTROL_URL" "$OCUSPOT_CONTROL_DIR"
   script:
-    - rm -rf "$OCUSPOT_DEPLOY_DIR"
-    - OCUSPOT_LOCAL_CONTROL_DIR="$OCUSPOT_CONTROL_DIR" "${OCUSPOT_CLI:-./ocuspot}" deploy bundle --project "ocuspot-deploy-demo" --image "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA" --subdomain "ocuspot-demo" --carrier "backend-kvm" --gateway "pconf-bus" --out "$OCUSPOT_DEPLOY_DIR" --apply
-    - cd "$OCUSPOT_DEPLOY_DIR"
-    - IMAGE_TAR="../ocuspot-image.tar" RATHOLE_BIN="${RATHOLE_BIN:-}" ./deploy.sh
+    - cd deploy
+    - sed "s|__OCUSPOT_IMAGE__|${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHA}|g" deploy.sh > deploy.runtime.sh
+    - chmod 700 deploy.runtime.sh
+    - IMAGE_TAR="../ocuspot-image.tar" RATHOLE_BIN="${RATHOLE_BIN:-}" ./deploy.runtime.sh
   artifacts:
     when: always
     expire_in: 7 days
     paths:
-      - .ocuspot-deploy/
+      - deploy/

@@ -1,0 +1,8 @@
+# Ocuspot-managed gateway Rathole config for binding backend-kvm@pconf-bus
+[server]
+bind_addr = "0.0.0.0:2333"
+
+[server.services.ocuspot_deploy_demo_backend_kvm_pconf_bus_8080]
+type = "tcp"
+bind_addr = "127.0.0.1:8080"
+token = "${OCUSPOT_RATHOLE_OCUSPOT_DEPLOY_DEMO_BACKEND_KVM_PCONF_BUS_8080}"
